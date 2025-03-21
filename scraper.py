@@ -71,6 +71,13 @@ def get_div_contents(html, search_term: str):
 # get a playerinfo instance from a friend code 
 async def get_info_from_friend_code(friend_code) -> PlayerInfo:
     response = REQUESTS_SESSION.get(friend_code_endpoint + friend_code)
+
+    if "ERROR CODE：" in response.text:
+        print("Couldn't get data, getting new authenticated session")
+        auth_response = REQUESTS_SESSION.head(f"https://lng-tgk-aime-gw.am-all.net/common_auth/login?site_id=maimaidxex&redirect_url=https://maimaidx-eng.com/maimai-mobile/")
+        REQUESTS_SESSION.head(auth_response.headers["Location"])
+        response = REQUESTS_SESSION.get(friend_code_endpoint + friend_code)
+
     # check if we got the data we need, if so get it and return
     if (response.status_code == 200) and ("name_block" in response.text) and ("rating_block" in response.text):
         html = response.text

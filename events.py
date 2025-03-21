@@ -7,8 +7,9 @@ from commands import Command
 from commands import update_user
 from display import display_error
 
-@tasks.loop(hours=1)
+@tasks.loop(minutes=20)
 async def update_users_scheduled():
+    print("Updating all users...")
     async with aiosqlite.connect("users.db") as db:
         async with db.execute("SELECT discord_id FROM users") as cursor:
             rows = await cursor.fetchall()

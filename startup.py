@@ -1,6 +1,7 @@
 import discord
 import events
 import sqlite3
+import time
 
 def startup():
     # create client
@@ -26,8 +27,8 @@ def startup():
     # initialize database
     print("Initializing database...")
     db = sqlite3.connect("users.db")
-    db.execute("CREATE TABLE IF NOT EXISTS users(discord_id, friend_code, maimai_name, maimai_rating)")
-    db.execute("CREATE TABLE IF NOT EXISTS user_data_history(discord_id, timestamp, maimai_name, maimai_rating)")
+    db.execute("CREATE TABLE IF NOT EXISTS users(discord_id TEXT, friend_code TEXT, maimai_name TEXT, maimai_rating INTEGER)")
+    db.execute("CREATE TABLE IF NOT EXISTS user_data_history(discord_id TEXT, timestamp INTEGER, maimai_name TEXT, maimai_rating INTEGER)")
     db.commit()
     db.close()
 

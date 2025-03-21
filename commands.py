@@ -1,6 +1,7 @@
 import discord
 import aiosqlite
 import time
+from datetime import datetime
 from collections.abc import Callable
 from display import display_info
 from scraper import get_info_from_friend_code
@@ -46,6 +47,7 @@ async def link_command_exec(original_message: discord.Message, args: list[str]):
 
     async with aiosqlite.connect("users.db") as db:
         await db.execute("INSERT INTO users VALUES(?, ?, ?, ?)", (original_message.author.id, friend_code, info.username, info.rating))
+        await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (original_message.author.id, round(time.time()), info.username, info.rating))
         await db.commit()
     await display_info(f"Linked this discord account to maimai account {info.username}!", original_message.channel)
     return
@@ -98,20 +100,62 @@ async def update_user(discord_id: int) -> PlayerInfo:
             last_known_rating = row[0]
             if int(last_known_rating) != int(info.rating):
                 await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (discord_id, round(time.time()), info.username, info.rating))
+                print(f"Updated info for maimai account {info.username}. Rating: {int(last_known_rating)} --> {info.rating}.")
+            else:
+                print(f"Last known rating for {info.username} matches current rating. Not updating historical data.")
 
         # update current rating
         await db.execute("UPDATE users SET maimai_name = ?, maimai_rating = ? WHERE discord_id = ?", (info.username, info.rating, discord_id))
         await db.commit()
     
-    print(f"Updated info for maimai account {info.username}. Rating: {info.rating}.")
     return info
-
 
 # update the issuing user's rating and username
 async def update_command_exec(original_message: discord.Message, args):
     info = await update_user(original_message.author.id)
     
     await display_info(f"Updated info for maimai account {info.username}. Rating: {info.rating}.", original_message.channel)
+    return
+
+# show a history of rating changes
+async def history_command_exec(original_message: discord.Message, args):
+    async with aiosqlite.connect("users.db") as db:
+        async with db.execute(f"SELECT timestamp, maimai_rating FROM user_data_history WHERE discord_id={original_message.author.id} ORDER BY timestamp DESC") as cursor:
+            rows = await cursor.fetchall()
+            if rows == None or (type(rows) == list and len(rows) == 0):
+                raise RuntimeError("This discord account hasn't been linked to a maimai account yet!")
+            
+            text = ""
+            for row in rows:
+                text += f"`{row[1]}` | `{datetime.fromtimestamp(row[0]).strftime('%Y-%m-%d %H:%M')}`\n"
+
+            await display_info(str(text), original_message.channel)
+
+# link other user (for testnig)
+async def lou(original_message: discord.Message, args):
+    link_id = args[2]
+    friend_code = args[1]
+
+    # make sure not already linked
+    users_with_this_discord_id = 1
+    async with aiosqlite.connect("users.db") as db:
+        async with db.execute(f"SELECT COUNT(*) FROM users WHERE discord_id={link_id}") as cursor:
+            row = await cursor.fetchone()
+            if row == None: raise RuntimeError("Something went wrong accessing the database!")
+
+            users_with_this_discord_id = row[0]
+
+    if users_with_this_discord_id > 0:
+        raise RuntimeError("Someone has already linked this maimai account to a discord account!")
+
+    # make sure its a valid friend code
+    info = await get_info_from_friend_code(friend_code)
+
+    async with aiosqlite.connect("users.db") as db:
+        await db.execute("INSERT INTO users VALUES(?, ?, ?, ?)", (link_id, friend_code, info.username, info.rating))
+        await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (original_message.author.id, round(time.time()), info.username, info.rating))
+        await db.commit()
+    await display_info(f"Linked <@{link_id}> to maimai account {info.username}!", original_message.channel)
     return
 
 # display help
@@ -125,4 +169,6 @@ async def help_command_exec(original_message: discord.Message, args):
 Command("link", link_command_validity, link_command_exec, "link <friendcode>", "Link your discord account to the given friend code.")
 Command("leaderboard", lambda a, b: True, leaderboard_command_exec, "leaderboard", "See a leaderboard of all registered users.")
 Command("update", lambda a, b: True, update_command_exec, "update", "Update your username and rating.")
+#Command("lou", lambda a, b: True, lou, "lou", "shh")
+Command("history", lambda a, b: True, history_command_exec, "history", "See a history of your rating over time. WIP - WILL BE GRAPHED SOON")
 Command("help", lambda a, b: True, help_command_exec, "help", "See all available commands.")
