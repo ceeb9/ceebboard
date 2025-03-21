@@ -1,8 +1,10 @@
 import discord
 import aiosqlite
+import time
 from collections.abc import Callable
 from display import display_info
 from scraper import get_info_from_friend_code
+from scraper import PlayerInfo
 
 class Command():
     command_prefix = "cb>"
@@ -32,8 +34,8 @@ async def link_command_exec(original_message: discord.Message, args: list[str]):
     async with aiosqlite.connect("users.db") as db:
         async with db.execute(f"SELECT COUNT(*) FROM users WHERE discord_id={original_message.author.id}") as cursor:
             row = await cursor.fetchone()
-            if type(row) == None: raise RuntimeError("Something went wrong accessing the database!")
-            assert type(row) == tuple
+            if row == None: raise RuntimeError("Something went wrong accessing the database!")
+
             users_with_this_discord_id = row[0]
 
     if users_with_this_discord_id > 0:
@@ -74,25 +76,40 @@ async def leaderboard_command_exec(original_message: discord.Message, args):
     await original_message.channel.send(embed=leaderboard_embed)
     return
 
-# update the issuing user's rating and username
-async def update_command_exec(original_message: discord.Message, args):
-    friend_code = 0
+async def update_user(discord_id: int) -> PlayerInfo:
     # get the friend code of the user issuing the command from the db
     async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT friend_code FROM users WHERE discord_id={original_message.author.id}") as cursor:
-            result = await cursor.fetchone()
-            if type(result) == None or type(result) == tuple and len(result) == 0:
+        async with db.execute(f"SELECT friend_code FROM users WHERE discord_id={discord_id}") as cursor:
+            row = await cursor.fetchone()
+            if row == None or type(row) == tuple and len(row) == 0:
                 raise RuntimeError("This discord account hasn't been linked to a maimai account yet!")
             
-            assert type(result) == tuple
-            friend_code = str(result[0])
+            friend_code = str(row[0])
 
-    # get their actual info
-    info = await get_info_from_friend_code(friend_code)
+        # get their actual info
+        info = await get_info_from_friend_code(friend_code)
 
-    async with aiosqlite.connect("users.db") as db:
-        await db.execute("UPDATE users SET maimai_name = ?, maimai_rating = ? WHERE discord_id = ?", (info.username, info.rating, original_message.author.id))
+        # update historical data (if rating has changed)
+        async with db.execute(f"SELECT maimai_rating FROM users WHERE discord_id={discord_id}") as cursor:
+            row = await cursor.fetchone()
+            if row == None or type(row) == tuple and len(row) == 0:
+                raise RuntimeError("No historical data for this account. Not sure how you managed this")
+            
+            last_known_rating = row[0]
+            if int(last_known_rating) != int(info.rating):
+                await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (discord_id, round(time.time()), info.username, info.rating))
+
+        # update current rating
+        await db.execute("UPDATE users SET maimai_name = ?, maimai_rating = ? WHERE discord_id = ?", (info.username, info.rating, discord_id))
         await db.commit()
+    
+    print(f"Updated info for maimai account {info.username}. Rating: {info.rating}.")
+    return info
+
+
+# update the issuing user's rating and username
+async def update_command_exec(original_message: discord.Message, args):
+    info = await update_user(original_message.author.id)
     
     await display_info(f"Updated info for maimai account {info.username}. Rating: {info.rating}.", original_message.channel)
     return

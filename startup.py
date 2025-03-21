@@ -12,6 +12,7 @@ def startup():
     # register events
     client.event(events.on_ready)
     client.event(events.on_message)
+    client.setup_hook = events.update_users_scheduled
 
     # read auth from disk
     print("Getting authentication values from disk...")
@@ -26,6 +27,7 @@ def startup():
     print("Initializing database...")
     db = sqlite3.connect("users.db")
     db.execute("CREATE TABLE IF NOT EXISTS users(discord_id, friend_code, maimai_name, maimai_rating)")
+    db.execute("CREATE TABLE IF NOT EXISTS user_data_history(discord_id, timestamp, maimai_name, maimai_rating)")
     db.commit()
     db.close()
 
