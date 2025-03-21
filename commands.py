@@ -153,7 +153,7 @@ async def lou(original_message: discord.Message, args):
 
     async with aiosqlite.connect("users.db") as db:
         await db.execute("INSERT INTO users VALUES(?, ?, ?, ?)", (link_id, friend_code, info.username, info.rating))
-        await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (original_message.author.id, round(time.time()), info.username, info.rating))
+        await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (link_id, round(time.time()), info.username, info.rating))
         await db.commit()
     await display_info(f"Linked <@{link_id}> to maimai account {info.username}!", original_message.channel)
     return
