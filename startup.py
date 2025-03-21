@@ -1,19 +1,38 @@
 import discord
 import events
+import aiosqlite
 import sqlite3
 import time
+import commands
+from discord.ext import tasks
+
+@tasks.loop(minutes=30)
+async def update_users_scheduled():
+    print("Updating all users...")
+    async with aiosqlite.connect("users.db") as db:
+        async with db.execute("SELECT discord_id FROM users") as cursor:
+            rows = await cursor.fetchall()
+            if rows == None:
+                raise Exception("No data in users table!!!")
+            
+            for row in rows:
+                await commands.update_user(row[0])
+
+class CeebboardClient(discord.Client):
+    async def setup_hook(self):
+        update_users_scheduled.start()
+    
 
 def startup():
     # create client
     print("Creating client...")
     intents = discord.Intents.default()
     intents.message_content = True
-    client = discord.Client(intents=intents)
+    client = CeebboardClient(intents=intents)
 
     # register events
     client.event(events.on_ready)
     client.event(events.on_message)
-    client.setup_hook = events.update_users_scheduled
 
     # read auth from disk
     print("Getting authentication values from disk...")

@@ -1,23 +1,8 @@
 import discord
-from discord.ext import tasks, commands
 import asyncio
-import cProfile, pstats
-import aiosqlite
 from commands import Command
 from commands import update_user
 from display import display_error
-
-@tasks.loop(minutes=20)
-async def update_users_scheduled():
-    print("Updating all users...")
-    async with aiosqlite.connect("users.db") as db:
-        async with db.execute("SELECT discord_id FROM users") as cursor:
-            rows = await cursor.fetchall()
-            if rows == None:
-                raise Exception("No data in users table!!!")
-            
-            for row in rows:
-                await update_user(row[0])
 
 async def on_ready():
     print("Ready!")
@@ -51,6 +36,6 @@ async def on_message(message: discord.Message):
             await current_command.execution_func(message, args)
 
         else:
-            await display_error(current_command.usage_string, message.channel)
+            await display_error(f"Usage: {current_command.usage_string}", message.channel)
     except RuntimeError as e:
         await display_error(str(e), message.channel)
