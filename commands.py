@@ -165,10 +165,10 @@ async def help_command_exec(original_message: discord.Message, args):
         help_embed.add_field(name=f"`{Command.command_prefix}{command.usage_string}`", value=command.description, inline=False)
     await original_message.channel.send(embed=help_embed)
 
-
-Command("link", link_command_validity, link_command_exec, "link <friendcode>", "Link your discord account to the given friend code.")
-Command("leaderboard", lambda a, b: True, leaderboard_command_exec, "leaderboard", "See a leaderboard of all registered users.")
-Command("update", lambda a, b: True, update_command_exec, "update", "Update your username and rating.")
-#Command("lou", lambda a, b: True, lou, "lou", "shh")
-Command("history", lambda a, b: True, history_command_exec, "history", "See a history of your rating over time. WIP - WILL BE GRAPHED SOON")
-Command("help", lambda a, b: True, help_command_exec, "help", "See all available commands.")
+def register_commands():
+    Command("link", link_command_validity, link_command_exec, "link <friendcode>", "Link your discord account to the given friend code.")
+    Command("leaderboard", lambda a, b: True, leaderboard_command_exec, "leaderboard", "See a leaderboard of all registered users.")
+    Command("update", lambda a, b: True, update_command_exec, "update", "Update your username and rating.")
+    #Command("lou", lambda a, b: True, lou, "lou", "shh")
+    Command("history", lambda a, b: True, history_command_exec, "history", "See a history of your rating over time. WIP - WILL BE GRAPHED SOON")
+    Command("help", lambda a, b: True, help_command_exec, "help", "See all available commands.")

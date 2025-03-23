@@ -22,7 +22,6 @@ class CeebboardClient(discord.Client):
     async def setup_hook(self):
         update_users_scheduled.start()
     
-
 def startup():
     # create client
     print("Creating client...")
@@ -33,6 +32,9 @@ def startup():
     # register events
     client.event(events.on_ready)
     client.event(events.on_message)
+
+    # register commands
+    commands.register_commands()
 
     # read auth from disk
     print("Getting authentication values from disk...")

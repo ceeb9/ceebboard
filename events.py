@@ -1,7 +1,6 @@
 import discord
 import asyncio
 from commands import Command
-from commands import update_user
 from display import display_error
 
 async def on_ready():
