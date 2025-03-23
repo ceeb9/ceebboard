@@ -10,5 +10,4 @@ sega_username::::<sega username>
 sega_password::::<sega password>
 ```
 fill in those details and save it in `auth.txt` in the root directory and you should be good to go. 
-you don't need two tokens if you're only running a dev bot, of course. just change the commented line at the bottom of `startup.py`
-to choose which token to login with.
+you don't need two tokens if you're only running a dev bot, of course. just change the commented line at the bottom of `startup.py` to choose which token to login with.
