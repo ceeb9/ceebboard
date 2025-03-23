@@ -7,7 +7,7 @@ class PlayerInfo():
         self.rating = rating
 
 friend_code_endpoint = "https://maimaidx-eng.com/maimai-mobile/friend/search/searchUser/?friendCode="
-dxnet_home_url = "https://maimaidx-eng.com/maimai-mobile/home/"
+dxnet_home_url = "https://maimaidx-eng.com/maimai-mobile/"
 
 def get_authenticated_session() -> requests.Session:
     print("Getting persistent login cookie...")
@@ -73,10 +73,8 @@ async def get_info_from_friend_code(friend_code) -> PlayerInfo:
     response = REQUESTS_SESSION.get(friend_code_endpoint + friend_code)
 
     if "ERROR CODE：" in response.text:
-        print("Couldn't get data, getting new authenticated session")
-        auth_response = REQUESTS_SESSION.head(f"https://lng-tgk-aime-gw.am-all.net/common_auth/login?site_id=maimaidxex&redirect_url=https://maimaidx-eng.com/maimai-mobile/")
-        REQUESTS_SESSION.head(auth_response.headers["Location"])
-        response = REQUESTS_SESSION.get(friend_code_endpoint + friend_code)
+        print("Couldn't get data, getting new ssid cookie")
+        auth_response = REQUESTS_SESSION.head(dxnet_home_url, allow_redirects=True)
 
     # check if we got the data we need, if so get it and return
     if (response.status_code == 200) and ("name_block" in response.text) and ("rating_block" in response.text):
@@ -86,6 +84,9 @@ async def get_info_from_friend_code(friend_code) -> PlayerInfo:
     
     # otherwise determine what error to report back
     if response.status_code != 200: raise RuntimeError("Error accessing the maimai servers.")
-    elif "ERROR CODE：" in response.text: raise RuntimeError("Error querying the maimai server for data.")
+    elif "ERROR CODE：" in response.text: 
+        raise RuntimeError("Error querying the maimai server for data.")
+        with open("output.html", "w", encoding="utf-8") as file:
+            file.write(auth_response.text)
     elif "WRONG CODE" in response.text: raise RuntimeError("Invalid friend code.")
     else: raise RuntimeError("An unknown error occurred. I didn't plan for this one :(")

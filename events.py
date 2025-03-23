@@ -33,7 +33,6 @@ async def on_message(message: discord.Message):
         
         if is_command_syntax_valid:
             await current_command.execution_func(message, args)
-
         else:
             await display_error(f"Usage: {current_command.usage_string}", message.channel)
     except RuntimeError as e:
