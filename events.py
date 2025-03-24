@@ -26,7 +26,7 @@ async def on_message(message: discord.Message):
 
     # do the actual command syntax checking and execution
     try:
-        if asyncio.iscoroutinefunction(current_command.validity_check_func(message, args)):
+        if asyncio.iscoroutinefunction(current_command.validity_check_func):
             is_command_syntax_valid = await current_command.validity_check_func(message, args)
         else:
             is_command_syntax_valid = current_command.validity_check_func(message, args)

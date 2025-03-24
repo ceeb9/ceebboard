@@ -117,10 +117,21 @@ async def update_command_exec(original_message: discord.Message, args):
     await display_info(f"Updated info for maimai account {info.username}. Rating: {info.rating}.", original_message.channel)
     return
 
+async def history_command_validity(original_message: discord.Message, args):
+    if len(args) == 1:
+        return True
+    elif len(args) == 2 and len(original_message.mentions) == 1:
+        return True
+    return False
+
 # show a history of rating changes
 async def history_command_exec(original_message: discord.Message, args):
+    id_to_query = original_message.author.id
+    if len(original_message.mentions) == 1:
+        id_to_query = original_message.mentions[0].id
+
     async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT timestamp, maimai_rating FROM user_data_history WHERE discord_id={original_message.author.id} ORDER BY timestamp DESC") as cursor:
+        async with db.execute(f"SELECT timestamp, maimai_rating, maimai_name FROM user_data_history WHERE discord_id={id_to_query} ORDER BY timestamp DESC") as cursor:
             rows = await cursor.fetchall()
             if rows == None or (type(rows) == list and len(rows) == 0):
                 raise RuntimeError("This discord account hasn't been linked to a maimai account yet!")
@@ -129,7 +140,7 @@ async def history_command_exec(original_message: discord.Message, args):
             for row in rows:
                 text += f"`{row[1]}` | `{datetime.fromtimestamp(row[0]).strftime('%Y-%m-%d %H:%M')}`\n"
 
-            await display_info(str(text), original_message.channel)
+            await display_info(str(text), original_message.channel, title=f"History for {rows[0][2]}:")
 
 # link other user (for testnig)
 async def lou(original_message: discord.Message, args):
@@ -170,5 +181,5 @@ def register_commands():
     Command("leaderboard", lambda a, b: True, leaderboard_command_exec, "leaderboard", "See a leaderboard of all registered users.")
     Command("update", lambda a, b: True, update_command_exec, "update", "Update your username and rating.")
     #Command("lou", lambda a, b: True, lou, "lou", "shh")
-    Command("history", lambda a, b: True, history_command_exec, "history", "See a history of your rating over time. WIP - WILL BE GRAPHED SOON")
+    Command("history", history_command_validity, history_command_exec, "history", "See a history of your rating over time. WIP - WILL BE GRAPHED SOON")
     Command("help", lambda a, b: True, help_command_exec, "help", "See all available commands.")
