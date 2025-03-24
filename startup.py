@@ -16,7 +16,10 @@ async def update_users_scheduled():
                 raise Exception("No data in users table!!!")
             
             for row in rows:
-                await commands.update_user(row[0])
+                try:
+                    await commands.update_user(row[0])
+                except RuntimeError as e:
+                    print(str(e))
 
 class CeebboardClient(discord.Client):
     async def setup_hook(self):
