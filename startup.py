@@ -2,7 +2,6 @@ import discord
 import events
 import aiosqlite
 import sqlite3
-import time
 import commands
 from discord.ext import tasks
 

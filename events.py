@@ -7,33 +7,25 @@ async def on_ready():
     print("Ready!")
 
 async def on_message(message: discord.Message):
-    if not message.content.startswith(Command.command_prefix):
-        return
+    if not message.content.startswith(Command.command_prefix): return
     
     args = message.content[len(Command.command_prefix):].split(" ")
-    command_identifier = args[0]
 
-    # check if the command exists
-    # check if alphanumeric first for security
-    if not command_identifier.isalpha(): 
-        current_command = "FAILED TO GET COMMAND"
-    else:
-        current_command = Command.Commands.get(command_identifier, "FAILED TO GET COMMAND")
-
-    if current_command == "FAILED TO GET COMMAND":
-        await display_error(f"Unknown command! `Try m>help` for a list of commands.", message.channel)
+    # get the command instance
+    current_command = await Command.message_to_command(message)
+    if current_command == None: 
+        await display_error("Unknown command! Try `m>help` for a list of commands.", message.channel)
         return
 
-    # do the actual command syntax checking and execution
     try:
-        if asyncio.iscoroutinefunction(current_command.validity_check_func):
-            is_command_syntax_valid = await current_command.validity_check_func(message, args)
-        else:
-            is_command_syntax_valid = current_command.validity_check_func(message, args)
+        # check if syntax of command is valid
+        is_command_syntax_valid = await current_command.validity_check_func(message, args)
+        if not is_command_syntax_valid:
+            await display_error(f"Usage: {current_command.usage_string}", message.channel, title="Invalid Usage.")
+            return
         
-        if is_command_syntax_valid:
-            await current_command.execution_func(message, args)
-        else:
-            await display_error(f"Usage: {current_command.usage_string}", message.channel)
+        # execute command
+        await current_command.execution_func(message, args)
+            
     except RuntimeError as e:
         await display_error(str(e), message.channel)

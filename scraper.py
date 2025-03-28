@@ -48,6 +48,7 @@ def get_authenticated_session() -> requests.Session:
                 # make a request to main site with ssid as param (authenticates session)
                 if response.is_redirect: 
                     session.head(response.headers["Location"])
+                    browser.close()
                     return session
                 else:
                     raise Exception("Failed to get authenticated session (couldn't get ssid)")
@@ -70,11 +71,15 @@ def get_div_contents(html, search_term: str):
 
 # get a playerinfo instance from a friend code 
 async def get_info_from_friend_code(friend_code) -> PlayerInfo:
+    global REQUESTS_SESSION
     response = REQUESTS_SESSION.get(friend_code_endpoint + friend_code)
 
     if "ERROR CODE：" in response.text:
-        print("Couldn't get data, getting new ssid cookie")
-        auth_response = REQUESTS_SESSION.head(dxnet_home_url, allow_redirects=True)
+        print("Couldn't get data, logging in again")
+        #auth_response = REQUESTS_SESSION.head(dxnet_home_url, allow_redirects=True)
+        with open("error.html", "w", encoding="utf-8") as file:
+            file.write(response.text)
+        REQUESTS_SESSION = get_authenticated_session()
 
     # check if we got the data we need, if so get it and return
     if (response.status_code == 200) and ("name_block" in response.text) and ("rating_block" in response.text):
@@ -86,7 +91,5 @@ async def get_info_from_friend_code(friend_code) -> PlayerInfo:
     if response.status_code != 200: raise RuntimeError("Error accessing the maimai servers.")
     elif "ERROR CODE：" in response.text: 
         raise RuntimeError("Error querying the maimai server for data.")
-        with open("output.html", "w", encoding="utf-8") as file:
-            file.write(auth_response.text)
     elif "WRONG CODE" in response.text: raise RuntimeError("Invalid friend code.")
     else: raise RuntimeError("An unknown error occurred. I didn't plan for this one :(")
