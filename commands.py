@@ -139,6 +139,8 @@ async def graph_command_validity(original_message: discord.Message, args):
         return True
     elif len(args) == 2 and len(original_message.mentions) == 1:
         return True
+    # elif len(args) == 2:
+    #     return True
     return False
 
 # show a graph of rating changes
@@ -146,6 +148,9 @@ async def graph_command_exec(original_message: discord.Message, args):
     id_to_query = original_message.author.id
     if len(original_message.mentions) == 1:
         id_to_query = original_message.mentions[0].id
+        
+    # if len(args) == 2:
+    #     id_to_query = args[1]
 
     async with aiosqlite.connect("users.db") as db:
         async with db.execute(f"SELECT timestamp, maimai_rating, maimai_name FROM user_data_history WHERE discord_id={id_to_query} ORDER BY timestamp ASC") as cursor:
@@ -159,7 +164,10 @@ async def graph_command_exec(original_message: discord.Message, args):
             lowest_rating = 20000
             highest_rating = -1
             dates_with_rating_gain = []
-            for row in rows:
+            first_rating = 0
+            for i, row in enumerate(rows):
+                if i == 0:
+                    first_rating = row[1]
                 maimai_name = row[2]
                 date_and_rating_gain = SimpleNamespace(date=datetime.fromtimestamp(row[0]).date(), rating=row[1])
                 
@@ -187,6 +195,7 @@ async def graph_command_exec(original_message: discord.Message, args):
             GRAPH_WIDTH = 800
             GRAPH_HEIGHT = 600
             DOT_RADIUS = 3
+            GRAPH_LINE_WIDTH = 2
             
             img = Image.new("RGB", (GRAPH_WIDTH, GRAPH_HEIGHT), "white")
             draw = ImageDraw.Draw(img)
@@ -215,13 +224,21 @@ async def graph_command_exec(original_message: discord.Message, args):
                 
                 draw.ellipse((cur_x - DOT_RADIUS, cur_y - DOT_RADIUS, cur_x + DOT_RADIUS, cur_y + DOT_RADIUS), fill="black")
                 
+                # handle the case where you gain rating on your first day of tracking
+                if index == 0 and first_rating != dates_with_rating_gain[0].rating:
+                    original_datapoint = SimpleNamespace(date=dates_with_rating_gain[0].date, rating=first_rating)
+                    original_x = x_pos(original_datapoint)
+                    original_y = y_pos(original_datapoint)
+                    draw.ellipse((original_x - DOT_RADIUS, original_y - DOT_RADIUS, original_x + DOT_RADIUS, original_y + DOT_RADIUS), fill="black")
+                    draw.line((original_x, original_y, cur_x, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
+                
                 # smooth by going across then up if distance is more than 20
                 if next_x - cur_x < 15:
-                    draw.line((cur_x, cur_y, next_x, next_y), fill="black", width=3)
+                    draw.line((cur_x, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
                 else:
                     offset = int(((next_y - cur_y) / 100) * 10)
-                    draw.line((cur_x, cur_y, next_x + offset, cur_y), fill="black", width=3)
-                    draw.line((next_x + offset, cur_y, next_x, next_y), fill="black", width=3)
+                    draw.line((cur_x, cur_y, next_x + offset, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
+                    draw.line((next_x + offset, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
                 
                 # make sure to draw the ellipse of the last datapoint too
                 if index+1 == len(dates_with_rating_gain) - 1:
@@ -281,9 +298,9 @@ async def graph_command_exec(original_message: discord.Message, args):
             elif days_in_graph < 5:
                 gridlined_day_count = 1
             elif days_in_graph < 10:
-                gridlined_day_count = 3
-            else:
                 gridlined_day_count = 4
+            else:
+                gridlined_day_count = 5
                 
             # find index of date of highest gain
             highest_gain_date_index = 0
