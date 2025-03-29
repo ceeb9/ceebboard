@@ -74,7 +74,7 @@ async def get_info_from_friend_code(friend_code) -> PlayerInfo:
     global REQUESTS_SESSION
     response = REQUESTS_SESSION.get(friend_code_endpoint + friend_code)
 
-    if "ERROR CODE：" in response.text:
+    if "ERROR CODE：200004" in response.text:
         print("Couldn't get data, logging in again")
         #auth_response = REQUESTS_SESSION.head(dxnet_home_url, allow_redirects=True)
         with open("error.html", "w", encoding="utf-8") as file:

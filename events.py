@@ -14,7 +14,7 @@ async def on_message(message: discord.Message):
     # get the command instance
     current_command = await Command.message_to_command(message)
     if current_command == None: 
-        await display_error("Unknown command! Try `m>help` for a list of commands.", message.channel)
+        await display_error(f"Unknown command! Try `{Command.command_prefix}help` for a list of commands.", message.channel)
         return
 
     try:

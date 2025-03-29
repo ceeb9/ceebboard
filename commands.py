@@ -139,8 +139,8 @@ async def graph_command_validity(original_message: discord.Message, args):
         return True
     elif len(args) == 2 and len(original_message.mentions) == 1:
         return True
-    # elif len(args) == 2:
-    #     return True
+    elif len(args) == 2 and len(original_message.mentions) == 0 and args[1].isdigit():
+        return True
     return False
 
 # show a graph of rating changes
@@ -149,14 +149,15 @@ async def graph_command_exec(original_message: discord.Message, args):
     if len(original_message.mentions) == 1:
         id_to_query = original_message.mentions[0].id
         
-    # if len(args) == 2:
-    #     id_to_query = args[1]
+    if len(args) == 2 and len(original_message.mentions) == 0:
+        id_to_query = args[1]
 
     async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT timestamp, maimai_rating, maimai_name FROM user_data_history WHERE discord_id={id_to_query} ORDER BY timestamp ASC") as cursor:
+        async with db.execute(f"SELECT timestamp, maimai_rating, maimai_name, (SELECT COUNT() from user_data_history WHERE discord_id={id_to_query}) AS count FROM user_data_history WHERE discord_id={id_to_query} ORDER BY timestamp ASC") as cursor:
             rows = await cursor.fetchall()
             if rows == None or (type(rows) == list and len(rows) == 0):
                 raise RuntimeError("This discord account hasn't been linked to a maimai account yet!")
+            
             
             maimai_name = ""
             
@@ -166,9 +167,14 @@ async def graph_command_exec(original_message: discord.Message, args):
             dates_with_rating_gain = []
             first_rating = 0
             for i, row in enumerate(rows):
+                # Row doesn't define getitem so do stuff we only need to do once here
                 if i == 0:
                     first_rating = row[1]
-                maimai_name = row[2]
+                    maimai_name = row[2]
+                if row[3] == 1:
+                    await display_error("Graphing isn't working for users with only 1 day of tracking history right now. Try again later!", original_message.channel)
+                    return
+                
                 date_and_rating_gain = SimpleNamespace(date=datetime.fromtimestamp(row[0]).date(), rating=row[1])
                 
                 # find highest rating
@@ -209,6 +215,10 @@ async def graph_command_exec(original_message: discord.Message, args):
             days_in_graph = (datetime.today().date() - dates_with_rating_gain[0].date).days
             x_per_day: float = float(GRAPH_WIDTH - (GRAPH_PADDING * 2))/float(days_in_graph)
             rating_delta = highest_rating - lowest_rating
+            if rating_delta == 0:
+                await display_error("Graphing isn't working for users who haven't gained rating since they started tracking yet. Go get some rating!", original_message.channel)
+                return
+            
             y_per_rating: float = float(GRAPH_HEIGHT - (GRAPH_PADDING * 2))/float(rating_delta)
             
             x_pos = lambda datapoint: ((days_in_graph - (datetime.today().date() - datapoint.date).days) * x_per_day) + GRAPH_PADDING
@@ -369,6 +379,7 @@ async def graph_command_exec(original_message: discord.Message, args):
 
 # link other user (for testnig)
 async def lou(original_message: discord.Message, args):
+    
     link_id = args[2]
     friend_code = args[1]
 
