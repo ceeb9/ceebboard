@@ -72,7 +72,6 @@ async def link_command_validity(original_message: discord.Message, args: list[st
     if len(args) != 2: return False
     friend_code = args[1]
     if not friend_code.isdigit(): return False
-    if not len(friend_code) == 13: return False
     return True
 
 # link a maimai account for the first time
