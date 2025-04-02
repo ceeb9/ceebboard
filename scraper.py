@@ -8,6 +8,7 @@ class PlayerInfo():
 
 friend_code_endpoint = "https://maimaidx-eng.com/maimai-mobile/friend/search/searchUser/?friendCode="
 dxnet_home_url = "https://maimaidx-eng.com/maimai-mobile/"
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0"
 
 def get_authenticated_session() -> requests.Session:
     print("Getting persistent login cookie...")
@@ -38,12 +39,13 @@ def get_authenticated_session() -> requests.Session:
             if cur_cookie["name"] == "clal": 
                 browser.close()
                 session = requests.Session()
+                session.headers = {"User-Agent": user_agent}
 
                 # set persistent login cookie
                 session.cookies.set("clal", cur_cookie["value"], domain="lng-tgk-aime-gw.am-all.net", path="/common_auth")
 
                 # get redirect from auth site (which contains ssid to authenticate session)
-                response = session.head(f"https://lng-tgk-aime-gw.am-all.net/common_auth/login?site_id=maimaidxex&redirect_url=https://maimaidx-eng.com/maimai-mobile/")
+                response = session.head(f"https://lng-tgk-aime-gw.am-all.net/common_auth/login?site_id=maimaidxex&redirect_url=https://maimaidx-eng.com/maimai-mobile/",)
 
                 # make a request to main site with ssid as param (authenticates session)
                 if response.is_redirect: 
@@ -88,7 +90,12 @@ async def get_info_from_friend_code(friend_code) -> PlayerInfo:
         return result
     
     # otherwise determine what error to report back
-    if response.status_code != 200: raise RuntimeError("Error accessing the maimai servers.")
+    if response.status_code != 200: 
+        with open("error.html", "w", encoding="utf-8") as file:
+            file.write(response.text)
+        print(response.url)
+        print(response.cookies)
+        raise RuntimeError("Error accessing the maimai servers.")
     elif "ERROR CODE：" in response.text: 
         raise RuntimeError("Error querying the maimai server for data.")
     elif "WRONG CODE" in response.text: raise RuntimeError("Invalid friend code.")
