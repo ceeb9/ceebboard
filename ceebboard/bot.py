@@ -1,8 +1,8 @@
 import discord
 from discord.ext import tasks
 import aiosqlite
-from .commands import Command, update_user
-from .display import display_error
+from .Commands.Command import Command
+from .util import display_error, update_user
 
 @tasks.loop(minutes=30)
 async def update_users_scheduled():

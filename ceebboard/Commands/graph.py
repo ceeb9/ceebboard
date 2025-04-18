@@ -1,140 +1,18 @@
-import discord
-import aiosqlite
-import time
-import io
-import os
-import math
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import discord, os, io, aiosqlite
+from PIL import Image, ImageDraw, ImageFont
 from datetime import datetime, timedelta
-from collections.abc import Callable
 from types import SimpleNamespace
-from .display import display_info, display_error
-from .scraper import get_info_from_friend_code, PlayerInfo
+from ..util import display_error
+from .Command import CommandInfo
 
-# update the details of a user (name and rating). also create user_data_history entry if rating has changed
-async def update_user(discord_id: int) -> PlayerInfo:
-    # get the friend code of the user issuing the command from the db
-    async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT friend_code FROM users WHERE discord_id={discord_id}") as cursor:
-            row = await cursor.fetchone()
-            if row == None or type(row) == tuple and len(row) == 0:
-                raise RuntimeError("This discord account hasn't been linked to a maimai account yet!")
-            
-            friend_code = str(row[0])
+COMMAND_INFO = CommandInfo(
+    identifiers = ("graph",),
+    usage_string = "graph [@another_user]",
+    description_string = "See a graph of a user's rating over time. If you don't ping another user, it'll show you your graph.",
+    is_dev_command = False
+)
 
-        # get their actual info
-        info = await get_info_from_friend_code(friend_code)
-
-        # update historical data (if rating has changed)
-        async with db.execute(f"SELECT maimai_rating FROM users WHERE discord_id={discord_id}") as cursor:
-            row = await cursor.fetchone()
-            if row == None or type(row) == tuple and len(row) == 0:
-                raise RuntimeError("No historical data for this account. Not sure how you managed this")
-            
-            last_known_rating = row[0]
-            if int(last_known_rating) != int(info.rating):
-                await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (discord_id, round(time.time()), info.username, info.rating))
-                print(f"Updated info for maimai account {info.username}. Rating: {int(last_known_rating)} --> {info.rating}.")
-            else:
-                print(f"Last known rating for {info.username} matches current rating. Not updating historical data.")
-
-        # update current rating
-        await db.execute("UPDATE users SET maimai_name = ?, maimai_rating = ? WHERE discord_id = ?", (info.username, info.rating, discord_id))
-        await db.commit()
-    
-    return info
-
-class Command():
-    command_prefix = "cb>"
-    Commands = {}
-    
-    def __init__(self, name: str, validity_check_func: Callable, execution_func: Callable, usage_string: str, description: str):
-        self.name = name
-        self.validity_check_func = validity_check_func
-        self.execution_func = execution_func
-        self.usage_string = usage_string
-        self.description = description
-
-        self.Commands[name] = self
-
-    # get a command instance given a message.
-    # assumes the message starts with the command prefix and is *supposed* to be a command
-    @staticmethod
-    async def message_to_command(original_message: discord.Message) -> "Command | None":
-        args = original_message.content[len(Command.command_prefix):].split(" ")
-        command_identifier = args[0]
-
-        if not command_identifier.isalpha(): current_command = None
-        else: current_command = Command.Commands.get(command_identifier, None)
-
-        return current_command
-
-async def link_command_validity(original_message: discord.Message, args: list[str]) -> bool:
-    if len(args) != 2: return False
-    friend_code = args[1]
-    if not friend_code.isdigit(): return False
-    return True
-
-# link a maimai account for the first time
-async def link_command_exec(original_message: discord.Message, args: list[str]):
-    friend_code = args[1]
-
-    # make sure not already linked
-    users_with_this_discord_id = 1
-    async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT COUNT(*) FROM users WHERE discord_id={original_message.author.id}") as cursor:
-            row = await cursor.fetchone()
-            if row == None: raise RuntimeError("Something went wrong accessing the database!")
-
-            users_with_this_discord_id = row[0]
-
-    if users_with_this_discord_id > 0:
-        raise RuntimeError("Someone has already linked this maimai account to a discord account!")
-
-    # make sure its a valid friend code
-    info = await get_info_from_friend_code(friend_code)
-
-    async with aiosqlite.connect("users.db") as db:
-        await db.execute("INSERT INTO users VALUES(?, ?, ?, ?)", (original_message.author.id, friend_code, info.username, info.rating))
-        await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (original_message.author.id, round(time.time()), info.username, info.rating))
-        await db.commit()
-    await display_info(f"Linked this discord account to maimai account {info.username}!", original_message.channel)
-    return
-
-# show a leaderboard of all registered users
-async def leaderboard_command_exec(original_message: discord.Message, args):
-    users = None
-    async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT discord_id, maimai_name, maimai_rating FROM users ORDER BY maimai_rating DESC") as cursor:
-            users = await cursor.fetchall()
-
-    lb_text = ""
-    for index, user_info in enumerate(users):
-        userid = user_info[0]
-        maimai_name = user_info[1]
-        maimai_rating = user_info[2]
-
-        lb_position_text = f"{' '*(2-len(str(index+1)))}{index+1}"
-        rating_text = f"{' '*(5-len(str(maimai_rating)))}{maimai_rating}"
-        maimai_name_text = f"{maimai_name}{'　'*(8-len(str(maimai_name)))}"
-        lb_line_text = f"`{lb_position_text}` | `{rating_text}` | `{maimai_name_text}` | <@{userid}>"
-        if userid == original_message.author.id:
-            lb_line_text = f"**{lb_line_text}**"
-
-        lb_text += (lb_line_text + "\n")
-
-    leaderboard_embed = discord.Embed(title="Leaderboard", color=discord.Color.green(), description=lb_text)
-    await original_message.channel.send(embed=leaderboard_embed)
-    return
-
-# update the issuing user's rating and username
-async def update_command_exec(original_message: discord.Message, args):
-    info = await update_user(original_message.author.id)
-    
-    await display_info(f"Updated info for maimai account {info.username}. Rating: {info.rating}.", original_message.channel)
-    return
-
-async def graph_command_validity(original_message: discord.Message, args):
+async def check_validity(original_message: discord.Message, args):
     if len(args) == 1:
         return True
     elif len(args) == 2 and len(original_message.mentions) == 1:
@@ -144,12 +22,12 @@ async def graph_command_validity(original_message: discord.Message, args):
     return False
 
 # show a graph of rating changes
-async def graph_command_exec(original_message: discord.Message, args):
+async def exec_command(original_message: discord.Message, args):
     MODULE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-    BACKGROUND_IMAGE_PATH = os.path.join(MODULE_PATH, "resources/bg.png")
-    DEFAULT_FONT_PATH = os.path.join(MODULE_PATH, "resources/CreatoDisplay-Regular.otf")
-    BEST_FONT_PATH = os.path.join(MODULE_PATH, "resources/TTRoundsNeueExtraBold.ttf")
-    TITLE_FONT_PATH = os.path.join(MODULE_PATH, "resources/MaruGothicDB.ttf")
+    BACKGROUND_IMAGE_PATH = os.path.join(MODULE_PATH, "../resources/bg.png")
+    DEFAULT_FONT_PATH = os.path.join(MODULE_PATH, "../resources/CreatoDisplay-Regular.otf")
+    BEST_FONT_PATH = os.path.join(MODULE_PATH, "../resources/TTRoundsNeueExtraBold.ttf")
+    TITLE_FONT_PATH = os.path.join(MODULE_PATH, "../resources/MaruGothicDB.ttf")
     
     id_to_query = original_message.author.id
     if len(original_message.mentions) == 1:
@@ -380,49 +258,3 @@ async def graph_command_exec(original_message: discord.Message, args):
             img.save(img_bytes, format="PNG")
             img_bytes.seek(0)
             await original_message.channel.send(file=discord.File(fp=img_bytes, filename='graph.png'))
-
-# link other user (for testing)
-async def lou(original_message: discord.Message, args):
-    
-    link_id = args[2]
-    friend_code = args[1]
-
-    # make sure not already linked
-    users_with_this_discord_id = 1
-    async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT COUNT(*) FROM users WHERE discord_id={link_id}") as cursor:
-            row = await cursor.fetchone()
-            if row == None: raise RuntimeError("Something went wrong accessing the database!")
-
-            users_with_this_discord_id = row[0]
-
-    if users_with_this_discord_id > 0:
-        raise RuntimeError("Someone has already linked this maimai account to a discord account!")
-
-    # make sure its a valid friend code
-    info = await get_info_from_friend_code(friend_code)
-
-    async with aiosqlite.connect("users.db") as db:
-        await db.execute("INSERT INTO users VALUES(?, ?, ?, ?)", (link_id, friend_code, info.username, info.rating))
-        await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (link_id, round(time.time()), info.username, info.rating))
-        await db.commit()
-    await display_info(f"Linked <@{link_id}> to maimai account {info.username}!", original_message.channel)
-    return
-
-# display help
-async def help_command_exec(original_message: discord.Message, args):
-    help_embed = discord.Embed(title="Commands", color=discord.Color.blue())
-    for command in Command.Commands.values():
-        help_embed.add_field(name=f"`{Command.command_prefix}{command.usage_string}`", value=command.description, inline=False)
-    await original_message.channel.send(embed=help_embed)
-    
-async def no_arg_validity(original_message: discord.Message, args):
-    return True
-
-def register_commands():
-    Command("link", link_command_validity, link_command_exec, "link <friendcode>", "Link your discord account to the given friend code.")
-    Command("leaderboard", no_arg_validity, leaderboard_command_exec, "leaderboard", "See a leaderboard of all registered users.")
-    Command("update", no_arg_validity, update_command_exec, "update", "Update your username and rating.")
-    #Command("lou", lambda a, b: True, lou, "lou", "DEV COMMAND - link another user")
-    Command("graph", graph_command_validity, graph_command_exec, "graph", "See a graph of your rating over time.")
-    Command("help", no_arg_validity, help_command_exec, "help", "See all available commands.")

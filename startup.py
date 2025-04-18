@@ -1,14 +1,20 @@
 import discord
 import sqlite3
 import json
-from ceebboard.commands import register_commands
+import pkgutil
+import importlib
+import ceebboard
+import ceebboard.Commands.Command
 from ceebboard.bot import CeebboardClient
 
-def startup():
+DEV_MODE = False
+
+def startup():    
     intents = discord.Intents.default()
     intents.message_content = True
     client = CeebboardClient(intents=intents)
     register_commands()
+
 
     # initialize database
     print("Initializing database...")
@@ -25,6 +31,36 @@ def startup():
     print("Starting event loop...")
     client.run(config["DEV_DISCORD_TOKEN"])
     #client.run(config["PRODUCTION_DISCORD_TOKEN"])
+    
+def register_commands():
+    # register all commands
+    
+    # iterate through modules in the commands folder
+    for _, name, _ in pkgutil.iter_modules(ceebboard.Commands.__path__):
+        module = importlib.import_module(f"ceebboard.Commands.{name}")
+        
+        # create an instance of the command if the corresponding
+        # module has a COMMAND_INFO attribute
+        if hasattr(module, "COMMAND_INFO"):
+            if not DEV_MODE and module.COMMAND_INFO.is_dev_command:
+                continue
+            
+            if hasattr(module, "check_validity"):
+                ceebboard.Commands.Command.Command(
+                    module.COMMAND_INFO.identifiers,
+                    module.check_validity,
+                    module.exec_command,
+                    module.COMMAND_INFO.usage_string,
+                    module.COMMAND_INFO.description_string
+                )
+            else:
+                ceebboard.Commands.Command.Command(
+                    module.COMMAND_INFO.identifiers,
+                    ceebboard.Commands.Command.no_arg_validity,
+                    module.exec_command,
+                    module.COMMAND_INFO.usage_string,
+                    module.COMMAND_INFO.description_string
+                )
 
 if __name__ == "__main__":
     startup()
