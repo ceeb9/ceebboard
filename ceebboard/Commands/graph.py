@@ -192,7 +192,7 @@ async def exec_command(original_message: discord.Message, args):
             elif days_in_graph < 10:
                 gridlined_day_count = 2
             else:
-                gridlined_day_count = 3
+                gridlined_day_count = 4
                 
             # find index of date of highest gain
             highest_gain_date_index = 0
@@ -208,11 +208,8 @@ async def exec_command(original_message: discord.Message, args):
             # draw gridlines and date labels for some amount of days
             for i in range(gridlined_day_count):
                 # find the actual days we should gridline
-                day_num = round(float(float(days_in_graph)/float(gridlined_day_count)) * (i+1))
-                if day_num == days_in_graph: day_num -= 1
+                day_num = round((days_in_graph / float(gridlined_day_count + 1)) * (i + 1))
                 
-                # skip the highest gain day, we will draw something special for it later
-                if day_num == highest_gain_date_index: continue
                 
                 # draw the date labels
                 date_text = (dates_with_rating_gain[0].date + timedelta(days=day_num)).strftime("%d/%m/%y")
@@ -226,13 +223,7 @@ async def exec_command(original_message: discord.Message, args):
                 draw.line((line_x, GRAPH_HEIGHT-BORDER_PADDING, line_x, BORDER_PADDING), width=1, fill=(0,0,0,16))
                 
             # RENDER BEST DAY GRAPHICS
-            # draw a date label and special gridline for the best day (most rating increase)
-            date_text = dates_with_rating_gain[highest_gain_date_index].date.strftime("%d/%m/%y")
-            date_text_width = font.getbbox(date_text)[2]
-            text_x = GRAPH_PADDING + (x_per_day * highest_gain_day_num) - (date_text_width//2)
-            text_y = GRAPH_HEIGHT - BORDER_PADDING + 10
-            draw.text((text_x, text_y), date_text, fill="black", font=font)
-            
+            # draw a date label and special gridline for the best day (most rating increase)            
             # draw the gridline, best! text and +rating text
             highest_gain_date_x = GRAPH_PADDING + (x_per_day * highest_gain_day_num)
             draw.line((highest_gain_date_x, GRAPH_HEIGHT-BORDER_PADDING, highest_gain_date_x, BORDER_PADDING), width=5, fill=(250,214,67,255))
@@ -240,7 +231,15 @@ async def exec_command(original_message: discord.Message, args):
             best_text_y = GRAPH_HEIGHT - BORDER_PADDING + 10 + best_font.getbbox("!")[3]
             draw.text((highest_gain_date_x - (best_font.getbbox("BEST!")[2]//2), best_text_y), "BEST!", stroke_width=1, stroke_fill="black", font=best_font, fill=(250,214,67,255))
             draw.text((highest_gain_date_x - (best_font.getbbox("+"+str(highest_gain))[2]//2), best_text_y + best_font.getbbox("!")[3]), "+"+str(highest_gain), stroke_width=1, stroke_fill="black", font=best_font, fill=(250,214,67,255))
-                
+            
+            # draw the date label for the best day (if not aligned with a date that already has a label)
+            if not (highest_gain_day_num == 0 or highest_gain_day_num == days_in_graph or highest_gain_day_num == round((days_in_graph / float(gridlined_day_count + 1)))):
+                date_text = dates_with_rating_gain[highest_gain_date_index].date.strftime("%d/%m/%y")
+                date_text_width = font.getbbox(date_text)[2]
+                text_x = GRAPH_PADDING + (x_per_day * highest_gain_day_num) - (date_text_width//2)
+                text_y = GRAPH_HEIGHT - BORDER_PADDING + 62
+                draw.text((text_x, text_y), date_text, fill="black", font=font)  
+              
             # RENDER BORDERS
             draw.line((BORDER_PADDING, GRAPH_HEIGHT-BORDER_PADDING, BORDER_PADDING, BORDER_PADDING), fill="black", width=3)
             draw.line((BORDER_PADDING, BORDER_PADDING, GRAPH_WIDTH - BORDER_PADDING, BORDER_PADDING), fill="black", width=3)
