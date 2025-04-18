@@ -15,7 +15,6 @@ def startup():
     client = CeebboardClient(intents=intents)
     register_commands()
 
-
     # initialize database
     print("Initializing database...")
     db = sqlite3.connect("users.db")
@@ -29,8 +28,10 @@ def startup():
         config = json.load(config_file)
         
     print("Starting event loop...")
-    client.run(config["DEV_DISCORD_TOKEN"])
-    #client.run(config["PRODUCTION_DISCORD_TOKEN"])
+    if DEV_MODE:
+        client.run(config["DEV_DISCORD_TOKEN"])
+    else:
+        client.run(config["PRODUCTION_DISCORD_TOKEN"])
     
 def register_commands():
     # register all commands
