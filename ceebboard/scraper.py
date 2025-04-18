@@ -1,4 +1,6 @@
 import requests
+import json
+import os
 from playwright.sync_api import sync_playwright
 
 class PlayerInfo():
@@ -9,13 +11,14 @@ class PlayerInfo():
 friend_code_endpoint = "https://maimaidx-eng.com/maimai-mobile/friend/search/searchUser/?friendCode="
 dxnet_home_url = "https://maimaidx-eng.com/maimai-mobile/"
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0"
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../config.json")
 
 def get_authenticated_session() -> requests.Session:
     print("Getting persistent login cookie...")
-    with open("auth.txt", "r") as file:
-        lines = file.readlines()
-        sega_username = lines[2].split("::::")[1]
-        sega_password = lines[3].split("::::")[1]
+    with open(CONFIG_PATH, "r") as auth_file:
+        config = json.load(auth_file)
+        sega_username = config["SEGA_USERNAME"]
+        sega_password = config["SEGA_PASSWORD"]
 
     with sync_playwright() as p:
         browser = p.chromium.launch()

@@ -2,13 +2,14 @@ import discord
 import aiosqlite
 import time
 import io
+import os
 import math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from datetime import datetime, timedelta
 from collections.abc import Callable
 from types import SimpleNamespace
-from display import display_info, display_error
-from scraper import get_info_from_friend_code, PlayerInfo
+from .display import display_info, display_error
+from .scraper import get_info_from_friend_code, PlayerInfo
 
 # update the details of a user (name and rating). also create user_data_history entry if rating has changed
 async def update_user(discord_id: int) -> PlayerInfo:
@@ -144,6 +145,12 @@ async def graph_command_validity(original_message: discord.Message, args):
 
 # show a graph of rating changes
 async def graph_command_exec(original_message: discord.Message, args):
+    MODULE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+    BACKGROUND_IMAGE_PATH = os.path.join(MODULE_PATH, "resources/bg.png")
+    DEFAULT_FONT_PATH = os.path.join(MODULE_PATH, "resources/CreatoDisplay-Regular.otf")
+    BEST_FONT_PATH = os.path.join(MODULE_PATH, "resources/TTRoundsNeueExtraBold.ttf")
+    TITLE_FONT_PATH = os.path.join(MODULE_PATH, "resources/MaruGothicDB.ttf")
+    
     id_to_query = original_message.author.id
     if len(original_message.mentions) == 1:
         id_to_query = original_message.mentions[0].id
@@ -156,7 +163,6 @@ async def graph_command_exec(original_message: discord.Message, args):
             rows = await cursor.fetchall()
             if rows == None or (type(rows) == list and len(rows) == 0):
                 raise RuntimeError("This discord account hasn't been linked to a maimai account yet!")
-            
             
             maimai_name = ""
             
@@ -206,7 +212,7 @@ async def graph_command_exec(original_message: discord.Message, args):
             draw = ImageDraw.Draw(img)
             
             # add background
-            bg_image = Image.open("resources/bg.png")
+            bg_image = Image.open(BACKGROUND_IMAGE_PATH)
             bg_resized = bg_image.resize(img.size)
             img.paste(bg_resized, (0,0))
             
@@ -254,8 +260,7 @@ async def graph_command_exec(original_message: discord.Message, args):
                     draw.ellipse((next_x - DOT_RADIUS, next_y - DOT_RADIUS, next_x + DOT_RADIUS, next_y + DOT_RADIUS), fill="black")
             
             # setup font (this is really ineffecient but whatever)
-            font_path = "resources/CreatoDisplay-Regular.otf"
-            font = ImageFont.truetype(font_path, size=16)
+            font = ImageFont.truetype(DEFAULT_FONT_PATH, size=16)
             
             # RENDER RATING AXIS LABELS AND GRIDLINES
             # define the step and steps for each gridline
@@ -307,9 +312,9 @@ async def graph_command_exec(original_message: discord.Message, args):
             elif days_in_graph < 5:
                 gridlined_day_count = 1
             elif days_in_graph < 10:
-                gridlined_day_count = 4
+                gridlined_day_count = 2
             else:
-                gridlined_day_count = 5
+                gridlined_day_count = 3
                 
             # find index of date of highest gain
             highest_gain_date_index = 0
@@ -353,7 +358,7 @@ async def graph_command_exec(original_message: discord.Message, args):
             # draw the gridline, best! text and +rating text
             highest_gain_date_x = GRAPH_PADDING + (x_per_day * highest_gain_day_num)
             draw.line((highest_gain_date_x, GRAPH_HEIGHT-BORDER_PADDING, highest_gain_date_x, BORDER_PADDING), width=5, fill=(250,214,67,255))
-            best_font = ImageFont.truetype("resources/TTRoundsNeueExtraBold.ttf", size=16)
+            best_font = ImageFont.truetype(BEST_FONT_PATH, size=16)
             best_text_y = GRAPH_HEIGHT - BORDER_PADDING + 10 + best_font.getbbox("!")[3]
             draw.text((highest_gain_date_x - (best_font.getbbox("BEST!")[2]//2), best_text_y), "BEST!", stroke_width=1, stroke_fill="black", font=best_font, fill=(250,214,67,255))
             draw.text((highest_gain_date_x - (best_font.getbbox("+"+str(highest_gain))[2]//2), best_text_y + best_font.getbbox("!")[3]), "+"+str(highest_gain), stroke_width=1, stroke_fill="black", font=best_font, fill=(250,214,67,255))
@@ -365,7 +370,7 @@ async def graph_command_exec(original_message: discord.Message, args):
             draw.line((GRAPH_WIDTH-BORDER_PADDING, GRAPH_HEIGHT-BORDER_PADDING, BORDER_PADDING, GRAPH_HEIGHT-BORDER_PADDING), fill="black", width=3)
             
             # RENDER TITLE
-            title_font = ImageFont.truetype("resources/MaruGothicDB.ttf", size=32)
+            title_font = ImageFont.truetype(TITLE_FONT_PATH, size=32)
             title_text = f"Rating Graph for {maimai_name}:"
             title_text_height = title_font.getbbox(title_text)[3]
             draw.text((BORDER_PADDING + 10, (BORDER_PADDING//2) - (title_text_height//2) - 4), title_text, font=title_font, fill="black")
@@ -376,7 +381,7 @@ async def graph_command_exec(original_message: discord.Message, args):
             img_bytes.seek(0)
             await original_message.channel.send(file=discord.File(fp=img_bytes, filename='graph.png'))
 
-# link other user (for testnig)
+# link other user (for testing)
 async def lou(original_message: discord.Message, args):
     
     link_id = args[2]
