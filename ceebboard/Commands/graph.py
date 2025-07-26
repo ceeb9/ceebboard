@@ -72,7 +72,6 @@ async def exec_command(original_message: discord.Message, args):
         if todays_player_info.rating < lowest_rating: lowest_rating = todays_player_info.rating
         if todays_player_info.rating > highest_rating: highest_rating = todays_player_info.rating
         
-        
     # add datapoint for today if last day of data isn't today
     if daily_player_info[-1].date != datetime.today().date():
         daily_player_info.append(SimpleNamespace(date=datetime.today().date(), rating=daily_player_info[-1].rating))
@@ -139,8 +138,8 @@ async def exec_command(original_message: discord.Message, args):
             else:
                 # draw gradual slope when increasing
                 offset = int(((cur_y - next_y) / 100) * 10)
-                draw.line((cur_x, cur_y, next_x + offset, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
-                draw.line((next_x + offset, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
+                draw.line((cur_x, cur_y, next_x - offset, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
+                draw.line((next_x - offset, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
         
         # make sure to draw the ellipse of the last datapoint too
         if index+1 == len(daily_player_info) - 1:
