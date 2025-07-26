@@ -8,11 +8,12 @@ import ceebboard.Commands.Command
 from ceebboard.bot import CeebboardClient
 
 DEV_MODE = False
+# disables updating user info
 
 def startup():    
     intents = discord.Intents.default()
     intents.message_content = True
-    client = CeebboardClient(intents=intents)
+    client = CeebboardClient(intents=intents, DEV_MODE=DEV_MODE)
     register_commands()
 
     # initialize database

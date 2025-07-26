@@ -25,12 +25,17 @@ class CeebboardClient(discord.Client):
     
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            print("CREATING FIRST CLIENT INSTANCE")
+            if kwargs["DEV_MODE"]:
+                cls._is_dev_mode = True
+            else:
+                cls._is_dev_mode = False
             cls._instance = super().__new__(cls)
         return cls._instance
     
     async def setup_hook(self):
         # Start the automatic user update loop
+        if self._is_dev_mode:
+            return
         update_users_scheduled.start()
         
     async def on_ready(self):

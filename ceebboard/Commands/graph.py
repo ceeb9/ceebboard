@@ -45,36 +45,42 @@ async def exec_command(original_message: discord.Message, args):
             maimai_name = ""
             
             # AGGREGATE RATING DATA INTO DAYS
-            lowest_rating = 20000
-            highest_rating = -1
-            dates_with_rating_gain = []
+            
+            daily_player_info = []
             first_rating = 0
             for i, row in enumerate(rows):
                 # Row doesn't define getitem so do stuff we only need to do once here
                 if i == 0:
                     first_rating = row[1]
-                    maimai_name = row[2]
                 if row[3] == 1:
                     await display_error("Graphing isn't working for users with only 1 day of tracking history right now. Try again later!", original_message.channel)
                     return
                 
-                date_and_rating_gain = SimpleNamespace(date=datetime.fromtimestamp(row[0]).date(), rating=row[1])
+                maimai_name = row[2]
                 
-                # find highest rating
-                if date_and_rating_gain.rating < lowest_rating: lowest_rating = date_and_rating_gain.rating
-                if date_and_rating_gain.rating > highest_rating: highest_rating = date_and_rating_gain.rating
+                todays_player_info = SimpleNamespace(date=datetime.fromtimestamp(row[0]).date(), rating=row[1])
     
-                # set new current day rating or make new day
-                if (len(dates_with_rating_gain) == 0) or (dates_with_rating_gain[-1].date != date_and_rating_gain.date):
-                    dates_with_rating_gain.append(date_and_rating_gain)
-                elif (dates_with_rating_gain[-1].date == date_and_rating_gain.date) and dates_with_rating_gain[-1].rating < date_and_rating_gain.rating:
-                    dates_with_rating_gain[-1].rating = date_and_rating_gain.rating
+                # make a new day in daily player info if timestamp dictates
+                if (len(daily_player_info) == 0) or (daily_player_info[-1].date != todays_player_info.date):
+                    daily_player_info.append(todays_player_info)
+                    
+                # update today's rating to a higher value if found
+                elif (daily_player_info[-1].date == todays_player_info.date) and daily_player_info[-1].rating < todays_player_info.rating:
+                    daily_player_info[-1].rating = todays_player_info.rating
                 else:
                     raise RuntimeError("Something went wrong when aggregating rating data")
                 
+            lowest_rating = 20000
+            highest_rating = -1
+            # find highest and lowest rating (resolution of value at the end of each day)
+            for todays_player_info in daily_player_info:
+                if todays_player_info.rating < lowest_rating: lowest_rating = todays_player_info.rating
+                if todays_player_info.rating > highest_rating: highest_rating = todays_player_info.rating
+                
+                
             # add datapoint for today if last day of data isn't today
-            if dates_with_rating_gain[-1].date != datetime.today().date():
-                dates_with_rating_gain.append(SimpleNamespace(date=datetime.today().date(), rating=dates_with_rating_gain[-1].rating))
+            if daily_player_info[-1].date != datetime.today().date():
+                daily_player_info.append(SimpleNamespace(date=datetime.today().date(), rating=daily_player_info[-1].rating))
                 
             # SETUP IMAGE
             # note that the constants for smoothing the data points have been tested 
@@ -95,7 +101,7 @@ async def exec_command(original_message: discord.Message, args):
             img.paste(bg_resized, (0,0))
             
             # get image scaling factors
-            days_in_graph = (datetime.today().date() - dates_with_rating_gain[0].date).days
+            days_in_graph = (datetime.today().date() - daily_player_info[0].date).days
             x_per_day: float = float(GRAPH_WIDTH - (GRAPH_PADDING * 2))/float(days_in_graph)
             rating_delta = highest_rating - lowest_rating
             if rating_delta == 0:
@@ -109,32 +115,41 @@ async def exec_command(original_message: discord.Message, args):
             
             # RENDER GRAPH
             # iterate over all data points to be rendered (draw the actual graph)
-            for index in range(len(dates_with_rating_gain) - 1):
-                cur_x = x_pos(dates_with_rating_gain[index])
-                cur_y = y_pos(dates_with_rating_gain[index])
-                next_x = x_pos(dates_with_rating_gain[index+1])
-                next_y = y_pos(dates_with_rating_gain[index+1])
+            for index in range(len(daily_player_info) - 1):
+                cur_x = x_pos(daily_player_info[index])
+                cur_y = y_pos(daily_player_info[index])
+                next_x = x_pos(daily_player_info[index+1])
+                next_y = y_pos(daily_player_info[index+1])
                 
                 draw.ellipse((cur_x - DOT_RADIUS, cur_y - DOT_RADIUS, cur_x + DOT_RADIUS, cur_y + DOT_RADIUS), fill="black")
                 
                 # handle the case where you gain rating on your first day of tracking
-                if index == 0 and first_rating != dates_with_rating_gain[0].rating:
-                    original_datapoint = SimpleNamespace(date=dates_with_rating_gain[0].date, rating=first_rating)
+                if index == 0 and first_rating != daily_player_info[0].rating:
+                    original_datapoint = SimpleNamespace(date=daily_player_info[0].date, rating=first_rating)
                     original_x = x_pos(original_datapoint)
                     original_y = y_pos(original_datapoint)
                     draw.ellipse((original_x - DOT_RADIUS, original_y - DOT_RADIUS, original_x + DOT_RADIUS, original_y + DOT_RADIUS), fill="black")
                     draw.line((original_x, original_y, cur_x, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
                 
-                # smooth by going across then up if distance is more than 20
+                # draw the lines connecting points of the graph
                 if next_x - cur_x < 15:
+                    # go directly from one point to another if close
                     draw.line((cur_x, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
                 else:
-                    offset = int(((next_y - cur_y) / 100) * 10)
-                    draw.line((cur_x, cur_y, next_x + offset, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
-                    draw.line((next_x + offset, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
+                    # catching the case where rating goes down (on a new version)
+                    if next_y > cur_y:
+                        draw.line((cur_x, cur_y, next_x - 15, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
+                        draw.line((next_x - 15, cur_y, next_x - 10, next_y), fill="black", width=GRAPH_LINE_WIDTH)
+                        draw.line((next_x - 10, next_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
+                        print("here")
+                    else:
+                        # draw gradual slope when increasing
+                        offset = int(((cur_y - next_y) / 100) * 10)
+                        draw.line((cur_x, cur_y, next_x + offset, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
+                        draw.line((next_x + offset, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
                 
                 # make sure to draw the ellipse of the last datapoint too
-                if index+1 == len(dates_with_rating_gain) - 1:
+                if index+1 == len(daily_player_info) - 1:
                     draw.ellipse((next_x - DOT_RADIUS, next_y - DOT_RADIUS, next_x + DOT_RADIUS, next_y + DOT_RADIUS), fill="black")
             
             # setup font (this is really ineffecient but whatever)
@@ -177,9 +192,9 @@ async def exec_command(original_message: discord.Message, args):
                     draw.line((BORDER_PADDING, current_gridline_y_value, GRAPH_WIDTH - BORDER_PADDING, current_gridline_y_value), width=1, fill="black")
                                     
             # RENDER DATE LABELS AND GRIDLINES
-            first_date_text = str(dates_with_rating_gain[0].date.strftime("%d/%m/%y"))
+            first_date_text = str(daily_player_info[0].date.strftime("%d/%m/%y"))
             first_date_text_width = font.getbbox(first_date_text)[2]
-            second_date_text = str(dates_with_rating_gain[-1].date.strftime("%d/%m/%y"))
+            second_date_text = str(daily_player_info[-1].date.strftime("%d/%m/%y"))
             second_date_text_width = font.getbbox(second_date_text)[2]
             draw.text((GRAPH_PADDING - first_date_text_width//2, GRAPH_HEIGHT - BORDER_PADDING + 10), first_date_text, fill="black", font=font)
             draw.text((GRAPH_WIDTH - GRAPH_PADDING - second_date_text_width//2, GRAPH_HEIGHT - BORDER_PADDING + 10), second_date_text, fill="black", font=font)
@@ -197,13 +212,13 @@ async def exec_command(original_message: discord.Message, args):
             # find index of date of highest gain
             highest_gain_date_index = 0
             highest_gain = 0
-            last_rating = dates_with_rating_gain[0].rating
-            for i in range(len(dates_with_rating_gain)):
-                if dates_with_rating_gain[i].rating - last_rating > highest_gain:
-                    highest_gain = dates_with_rating_gain[i].rating - last_rating
+            last_rating = daily_player_info[0].rating
+            for i in range(len(daily_player_info)):
+                if daily_player_info[i].rating - last_rating > highest_gain:
+                    highest_gain = daily_player_info[i].rating - last_rating
                     highest_gain_date_index = i
-                last_rating = dates_with_rating_gain[i].rating
-            highest_gain_day_num = (dates_with_rating_gain[highest_gain_date_index].date - dates_with_rating_gain[0].date).days
+                last_rating = daily_player_info[i].rating
+            highest_gain_day_num = (daily_player_info[highest_gain_date_index].date - daily_player_info[0].date).days
                 
             # draw gridlines and date labels for some amount of days
             for i in range(gridlined_day_count):
@@ -212,7 +227,7 @@ async def exec_command(original_message: discord.Message, args):
                 
                 
                 # draw the date labels
-                date_text = (dates_with_rating_gain[0].date + timedelta(days=day_num)).strftime("%d/%m/%y")
+                date_text = (daily_player_info[0].date + timedelta(days=day_num)).strftime("%d/%m/%y")
                 date_text_width = font.getbbox(date_text)[2]
                 text_x = GRAPH_PADDING + (x_per_day * day_num) - (date_text_width//2)
                 text_y = GRAPH_HEIGHT - BORDER_PADDING + 10
@@ -234,7 +249,7 @@ async def exec_command(original_message: discord.Message, args):
             
             # draw the date label for the best day (if not aligned with a date that already has a label)
             if not (highest_gain_day_num == 0 or highest_gain_day_num == days_in_graph or highest_gain_day_num == round((days_in_graph / float(gridlined_day_count + 1)))):
-                date_text = dates_with_rating_gain[highest_gain_date_index].date.strftime("%d/%m/%y")
+                date_text = daily_player_info[highest_gain_date_index].date.strftime("%d/%m/%y")
                 date_text_width = font.getbbox(date_text)[2]
                 text_x = GRAPH_PADDING + (x_per_day * highest_gain_day_num) - (date_text_width//2)
                 text_y = GRAPH_HEIGHT - BORDER_PADDING + 62
