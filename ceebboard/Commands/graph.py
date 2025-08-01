@@ -139,8 +139,13 @@ async def exec_command(original_message: discord.Message, args):
             else:
                 # draw gradual slope when increasing
                 offset = int(((cur_y - next_y) / 100) * 10)
-                draw.line((cur_x, cur_y, next_x - offset, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
-                draw.line((next_x - offset, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
+                
+                # avoid the offset going behind the current position
+                if next_x - offset > cur_x:
+                    draw.line((cur_x, cur_y, next_x - offset, cur_y), fill="black", width=GRAPH_LINE_WIDTH)
+                    draw.line((next_x - offset, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
+                else:
+                    draw.line((cur_x, cur_y, next_x, next_y), fill="black", width=GRAPH_LINE_WIDTH)
         
         # make sure to draw the ellipse of the last datapoint too
         if index+1 == len(daily_player_info) - 1:
