@@ -41,7 +41,9 @@ async def exec_command(original_message: discord.Message, args):
             rows = await cursor.fetchall()
             if rows == None or (type(rows) == list and len(rows) == 0):
                 raise RuntimeError("This discord account hasn't been linked to a maimai account yet!")
+            
             rows = list(rows)
+            
             if rows[0][3] <= 1:
                 await display_error("You'll need some more data for graphing to work. Try again later!", original_message.channel)
                 return
@@ -52,18 +54,17 @@ async def exec_command(original_message: discord.Message, args):
             # AGGREGATE RATING DATA INTO DAYS
             daily_player_info = []
             for i, row in enumerate(rows):
-                todays_player_info = SimpleNamespace(date=datetime.fromtimestamp(row[0]).date(), rating=row[1])
-    
-                # make a new day in daily player info if timestamp dictates
-                if (len(daily_player_info) == 0) or (daily_player_info[-1].date != todays_player_info.date):
-                    daily_player_info.append(todays_player_info)
-            
-                # update today's rating to a higher value if found
-                elif (daily_player_info[-1].date == todays_player_info.date) and daily_player_info[-1].rating < todays_player_info.rating:
-                    daily_player_info[-1].rating = todays_player_info.rating
-                    
-                else:
-                    raise RuntimeError("Something went wrong when aggregating rating data")
+                current_player_info = SimpleNamespace(date=datetime.fromtimestamp(row[0]).date(), rating=row[1])
+                
+                should_start_new_day = (len(daily_player_info) == 0) or (daily_player_info[-1].date != current_player_info.date)
+                
+                if should_start_new_day:
+                    daily_player_info.append(current_player_info)
+                
+                # update rating if not the same as current daily rating
+                elif daily_player_info[-1].rating != current_player_info.rating:
+                    daily_player_info[-1].rating = current_player_info.rating
+
                 
     lowest_rating = 20000
     highest_rating = -1

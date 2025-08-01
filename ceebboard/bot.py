@@ -1,6 +1,7 @@
 import discord
 from discord.ext import tasks
 import aiosqlite
+import traceback
 from .Commands.Command import Command
 from .util import display_error, update_user
 
