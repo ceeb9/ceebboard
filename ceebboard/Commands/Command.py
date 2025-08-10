@@ -3,6 +3,7 @@ from collections.abc import Callable
 
 class Command():
     command_prefix = "cb>"
+    # class var storing ref to each command instance
     IdentifierToCommandInstance = {}
     
     def __init__(self, identifiers: tuple, validity_check_func: Callable, execution_func: Callable, usage_string: str, description: str):
