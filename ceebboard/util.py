@@ -38,9 +38,6 @@ async def update_user(discord_id: int) -> PlayerInfo:
             last_known_rating = row[0]
             if int(last_known_rating) != int(info.rating):
                 await db.execute("INSERT INTO user_data_history VALUES(?, ?, ?, ?)", (discord_id, round(time.time()), info.username, info.rating))
-                write_log_message(f"Updated info for maimai account {info.username}. Rating: {int(last_known_rating)} --> {info.rating}.", LogMessageLevel.INFO)
-            else:
-                write_log_message(f"Last known rating for {info.username} matches current rating. Not updating historical data.", LogMessageLevel.INFO)
 
         # update current rating
         await db.execute("UPDATE users SET maimai_name = ?, maimai_rating = ? WHERE discord_id = ?", (info.username, info.rating, discord_id))

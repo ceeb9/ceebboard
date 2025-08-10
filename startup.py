@@ -10,7 +10,7 @@ from ceebboard.bot import CeebboardClient
 from ceebboard.logging import write_log_message, LogMessageLevel
 
 # enables dev mode commands
-DEV_MODE = False
+DEV_MODE = True
 
 def startup():    
     # enable dev commands + offline mode with cli args for debugging
@@ -40,7 +40,7 @@ def startup():
         config = json.load(config_file)
         
     write_log_message("Starting event loop...", LogMessageLevel.INFO)
-    if OFFLINE_MODE:
+    if DEV_MODE:
         client.run(config["DEV_DISCORD_TOKEN"])
     else:
         client.run(config["PRODUCTION_DISCORD_TOKEN"])
