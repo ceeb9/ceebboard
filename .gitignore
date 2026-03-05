@@ -8,3 +8,4 @@ testing
 venv
 .venv
 uv.lock
+graph.png
