@@ -1,4 +1,3 @@
-import json
 import os
 from playwright.async_api import async_playwright
 from .session_store import REQUESTS_SESSION
@@ -12,18 +11,14 @@ class PlayerInfo():
 friend_code_endpoint = "https://maimaidx-eng.com/maimai-mobile/friend/search/searchUser/?friendCode="
 dxnet_home_url = "https://maimaidx-eng.com/maimai-mobile/"
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0"
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../config.json")
 
 # reauthenticates the global session
 async def reauthenticate_session():
     global REQUESTS_SESSION
     write_log_message("Getting persistent login cookie...", LogMessageLevel.INFO)
 
-    # Load credentials
-    with open(CONFIG_PATH, "r") as auth_file:
-        config = json.load(auth_file)
-        sega_username = config["SEGA_USERNAME"]
-        sega_password = config["SEGA_PASSWORD"]
+    sega_username = os.environ["SEGA_USERNAME"]
+    sega_password = os.environ["SEGA_PASSWORD"]
 
     async with async_playwright() as p:
         write_log_message("Logging into all-net...", LogMessageLevel.INFO)

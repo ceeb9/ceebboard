@@ -1,9 +1,5 @@
-import discord
-import sqlite3
-import json
-import sys
-import pkgutil
-import importlib
+import discord, os, sqlite3, sys, pkgutil, importlib
+from dotenv import load_dotenv
 import ceebboard
 import ceebboard.Commands.Command
 from ceebboard.bot import CeebboardClient
@@ -12,7 +8,9 @@ from ceebboard.logging import write_log_message, LogMessageLevel
 # enables dev mode commands
 DEV_MODE = True
 
-def startup():    
+def startup():
+    load_dotenv()
+
     # enable dev commands + offline mode with cli args for debugging
     global DEV_MODE
     OFFLINE_MODE = False
@@ -35,15 +33,9 @@ def startup():
     db.commit()
     db.close()
 
-    # get credentials
-    with open("config.json") as config_file:
-        config = json.load(config_file)
-        
     write_log_message("Starting event loop...", LogMessageLevel.INFO)
-    if DEV_MODE:
-        client.run(config["DEV_DISCORD_TOKEN"])
-    else:
-        client.run(config["PRODUCTION_DISCORD_TOKEN"])
+    token = os.environ["DEV_DISCORD_TOKEN"] if DEV_MODE else os.environ["PRODUCTION_DISCORD_TOKEN"]
+    client.run(token)
     
 # register all commands
 def register_commands():

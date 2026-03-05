@@ -1,5 +1,6 @@
 auth.txt
 config.json
+.env
 .vscode
 __pycache__
 users.db

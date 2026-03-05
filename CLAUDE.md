@@ -19,7 +19,7 @@ uv run python startup.py --dev --offline  # Both
 
 ## Configuration
 
-Copy `example_config.json` to `config.json` and fill in credentials. Contains Discord bot tokens and SEGA account credentials for dxnet authentication.
+Copy `.env.example` to `.env` and fill in credentials. Contains Discord bot tokens (`PRODUCTION_DISCORD_TOKEN`, `DEV_DISCORD_TOKEN`) and SEGA account credentials (`SEGA_USERNAME`, `SEGA_PASSWORD`) for dxnet authentication. Loaded via `python-dotenv` at startup.
 
 ## Architecture
 
