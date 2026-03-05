@@ -19,7 +19,7 @@ async def display_info(info_text: str, channel, title: str="") -> None:
 async def update_user(discord_id: int) -> PlayerInfo:
     # get the friend code of the user issuing the command from the db
     async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT friend_code FROM users WHERE discord_id={discord_id}") as cursor:
+        async with db.execute("SELECT friend_code FROM users WHERE discord_id=?", (discord_id,)) as cursor:
             row = await cursor.fetchone()
             if row == None or type(row) == tuple and len(row) == 0:
                 raise RuntimeError("This discord account hasn't been linked to a maimai account yet!")
@@ -30,7 +30,7 @@ async def update_user(discord_id: int) -> PlayerInfo:
         info = await get_info_from_friend_code(friend_code)
 
         # update historical data (if rating has changed)
-        async with db.execute(f"SELECT maimai_rating FROM users WHERE discord_id={discord_id}") as cursor:
+        async with db.execute("SELECT maimai_rating FROM users WHERE discord_id=?", (discord_id,)) as cursor:
             row = await cursor.fetchone()
             if row == None or type(row) == tuple and len(row) == 0:
                 raise RuntimeError("No historical data for this account. Not sure how you managed this")

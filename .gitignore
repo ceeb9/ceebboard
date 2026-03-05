@@ -5,3 +5,5 @@ __pycache__
 users.db
 testing
 venv
+.venv
+uv.lock

@@ -19,7 +19,7 @@ async def exec_command(original_message: discord.Message, args):
     # make sure not already linked
     users_with_this_discord_id = 1
     async with aiosqlite.connect("users.db") as db:
-        async with db.execute(f"SELECT COUNT(*) FROM users WHERE discord_id={link_id}") as cursor:
+        async with db.execute("SELECT COUNT(*) FROM users WHERE discord_id=?", (link_id,)) as cursor:
             row = await cursor.fetchone()
             if row == None: raise RuntimeError("Something went wrong accessing the database!")
 

@@ -1,0 +1,12 @@
+[project]
+name = "ceebboard"
+version = "0.1.0"
+description = "Discord bot that tracks maimai player statistics"
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.21.0",
+    "discord.py>=2.5.2",
+    "pillow>=11.1.0",
+    "playwright>=1.51.0",
+    "requests>=2.32.3",
+]
