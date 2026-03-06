@@ -10,14 +10,19 @@ COMMAND_INFO = CommandInfo(
     is_dev_command = False
 )
 
+EMOJI_UP = "<:up_green:1479333946218254468>"
+EMOJI_DOWN = "<:down_red:1479333926559420487>"
+EMOJI_NEW = "<:plus_white:1479336807882817650>"
+EMOJI_NEUTRAL = "<:minus_white:1479336825213419672>"
+
 def _format_delta(current_pos: int, old_positions: dict[str, int], discord_id: str) -> str:
     if discord_id not in old_positions:
-        return "NEW"
+        return f"{EMOJI_NEW}`NEW`"
     delta = old_positions[discord_id] - current_pos
     if delta == 0:
-        return " -- "
-    symbol = "▲" if delta > 0 else "▼"
-    return f"{symbol}{abs(delta)}".ljust(3)
+        return f"{EMOJI_NEUTRAL}`---`"
+    emoji = EMOJI_UP if delta > 0 else EMOJI_DOWN
+    return f"{emoji}`{abs(delta):>2} `"
 
 
 # show a leaderboard of all registered users
@@ -61,7 +66,7 @@ async def exec_command(original_message: discord.Message, args):
         delta_text = _format_delta(current_pos, old_positions, str(userid))
         rating_text = f"{' '*(5-len(str(maimai_rating)))}{maimai_rating}"
         maimai_name_text = f"{maimai_name}{'　'*(8-len(str(maimai_name)))}"
-        lb_line_text = f"`{lb_position_text}` `{delta_text}` | `{rating_text}` | `{maimai_name_text}` | <@{userid}>"
+        lb_line_text = f"`{lb_position_text}` {delta_text} | `{rating_text}` | `{maimai_name_text}` | <@{userid}>"
         if userid == original_message.author.id:
             lb_line_text = f"**{lb_line_text}**"
 
