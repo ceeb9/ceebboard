@@ -6,7 +6,7 @@ from ceebboard.bot import CeebboardClient
 from ceebboard.logging import write_log_message, LogMessageLevel
 
 # enables dev mode commands
-DEV_MODE = True
+DEV_MODE = False
 
 def startup():
     load_dotenv()
